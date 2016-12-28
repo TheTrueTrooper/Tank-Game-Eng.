@@ -1,0 +1,72 @@
+﻿/* Simple Tank Game
+ * Angelo Sanches + Partner
+  */
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace CMPE2800Tank {
+    class Bullet : Entity {
+
+        public int ID;// senders id
+        public readonly float radius = 2f;//size of projectile
+        public float scale;//size
+        private PointF velocity;//movement vector
+
+        private readonly GraphicsPath model = null;
+
+        public Bullet(int id, PointF pos, PointF velocity, float scale, Color col) : base(pos, 0, col) {
+            ID = id;
+
+            this.velocity = velocity;
+            this.scale = scale;
+
+            CheckAtDistance = 10;
+
+            //create graphics path from points
+            model = new GraphicsPath();
+            model.AddPolygon(Utility.CreateCircle(radius));
+        }
+
+        public override GraphicsPath GetPath() {
+            GraphicsPath graphicsPath = (GraphicsPath)model.Clone();
+            Matrix matrix = new Matrix();
+            matrix.Translate(position.X, position.Y);
+            matrix.Scale(scale, scale);
+            graphicsPath.Transform(matrix);
+            return graphicsPath;
+        }
+
+        internal override void Tick() {
+            //move projectile
+            position = Utility.AddVectors(position, velocity);
+        }
+        public override void Render(Graphics gr) {
+            //draw body
+            gr.FillPath((Brush)new SolidBrush(color), GetPath());
+            gr.DrawPath(Pens.Black, GetPath());
+        }
+
+        public override bool DetectColish(Entity sender, Graphics gr) {
+            //escape conditions
+            if (IsMarkedForDeath || sender is PickUpss) return false;
+            if (sender is Tank && ((sender as Tank).ID == ID)) return false;              
+            
+            //proximity check
+            if(!base.DetectColish(sender, gr))
+                return false;
+
+            //check intersect
+            Region region = new Region(GetPath());
+            region.Intersect(new Region(sender.GetPath()));
+            if (!region.IsEmpty(gr)) {
+                IsMarkedForDeath = true;
+            }
+            return true;
+        }
+    }
+}

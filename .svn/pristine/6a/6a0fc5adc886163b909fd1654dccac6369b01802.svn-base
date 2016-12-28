@@ -1,0 +1,325 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Threading;
+using System.Diagnostics;
+using System.Drawing.Drawing2D;
+
+namespace CMPE2800Tank {
+    public partial class Form1 : Form {
+        /// <summary>
+        /// THREADING stuff
+        /// </summary>
+        //theads to handle rendering and logic
+        Thread renderThread, updateThread;
+        //flag to handle thread life
+        private volatile bool isRunning = false;
+        //object to lock access to entities while rendering and updating
+        private object updateLock = new object();
+        //delegate for passing Entity from logic thread to main form
+        public delegate void delVoidEntity(Entity ent);
+        private delVoidEntity sendEntityDelegate;
+
+        List<IControl> NeedTank = new List<IControl>();
+
+
+        /// <summary>
+        /// GAME STUFF
+        /// </summary>
+        //objects such as tanks, bullets, walls, etc
+        Tank tankAI;
+        private List<Entity> gameObjects = new List<Entity>();
+        private List<Particle> particles = new List<Particle>();
+
+        //controllers
+        Controller controlP1, controlP2;
+        AI controlAI = new AI();
+
+        //rng
+        public static Random rng { get; } = new Random();
+        
+
+        public Form1() {
+            InitializeComponent();
+
+            ClientSize = new Size(64*18, 64*10);
+
+            sendEntityDelegate = new delVoidEntity(AddBullet);
+
+            InitializeGame();
+
+        }
+
+        private void InitializeGame() {
+
+            //reset
+            controlP1 = new Controller(1);
+            controlP2 = new Controller(2);
+            controlAI = new AI();
+            gameObjects.Clear();
+            particles.Clear();
+
+            gameObjects.Add(new PUHealth(new PointF(64, 64), 0, Color.Aqua));
+
+            //add players
+            Tank tankP1 = new Tank(controlP1, sendEntityDelegate, new PointF(ClientSize.Width - 64, ClientSize.Height - 64), 180, Color.Blue);
+            Tank tankP2 = new Tank(controlP2, sendEntityDelegate, new PointF(64, 64), 0, Color.Green);
+            tankAI = new Tank(controlAI, sendEntityDelegate, new PointF(Width / 2, Height / 2), 90, Color.Yellow);
+            gameObjects.Add(tankP1);
+            gameObjects.Add(tankP2);
+            gameObjects.Add(tankAI);
+
+            //load map
+            //MapLoader.LoadMap().ForEach(o => gameObjects.Add(o));
+
+            //temporary test walls           
+            gameObjects.Add(new Wall(new PointF(16, 16), 0, Color.White));
+            gameObjects.Add(new Wall(new PointF(16, 48), 0, Color.White));
+            gameObjects.Add(new Wall(new PointF(48, 16), 0, Color.White));
+            //gameObjects.Add(new Wall(new PointF(1024, 1024), 0, Color.White));
+            //gameObjects.Add(new Wall(new PointF(512, 512), 0, Color.White));
+        }
+
+        private void Form1_Load(object sender, EventArgs e) {
+            //set running flag
+            isRunning = true;
+
+            //start rendering thread
+            renderThread = new Thread(RenderThread);
+            renderThread.IsBackground = true;
+            renderThread.Start();
+
+            //start logic thread
+            updateThread = new Thread(UpdateThread);
+            updateThread.IsBackground = true;
+            updateThread.Start();
+        }
+
+        private void RenderThread() {
+            while (isRunning) {
+                //render using double buffered graphics
+                using (BufferedGraphicsContext bgc = new BufferedGraphicsContext()) {
+                    using (BufferedGraphics bg = bgc.Allocate(CreateGraphics(), ClientRectangle)) {
+                        //clear screen
+                        bg.Graphics.Clear(Color.Black);
+                        //use anti aliasing
+                        bg.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+                        //draw stuff
+                        lock (updateLock) {
+                            Draw(bg.Graphics);
+                        }                       
+
+                        //render backbuffer to frontbuffer
+                        bg.Render();
+                    }
+                }
+                Thread.Sleep(1);
+            }
+        }
+
+        private void UpdateThread() {
+            while (isRunning) {
+                lock (updateLock) {
+                    //update objects
+                    UpdateLogic();
+
+                }               
+                Thread.Sleep(20);
+            }
+        }
+
+        private void UpdateLogic() {
+
+            //poll for input
+            //controlP1.PollController();
+            //controlP2.PollController();
+            controlAI.Update(gameObjects, tankAI);
+
+            //update objects
+            for (int i = 0; i < gameObjects.Count; i++) {
+                gameObjects[i].Tick();
+
+                //kill bullets out of bounds
+                if (gameObjects[i] is Bullet && !Utility.IsPointInRectangle(gameObjects[i].position, ClientRectangle)) {
+                    gameObjects[i].IsMarkedForDeath = true;
+                }
+            }
+
+            //collision detection
+            Graphics gr = CreateGraphics();
+            foreach (Entity a in gameObjects) {
+                foreach (Entity b in gameObjects) {
+                    //escape unessesary checks
+                    if (a is Wall && b is Wall) //ingore wall on wall
+                        continue;
+                    if (a is Bullet && b is Bullet) //ignore bullet on bullet
+                        continue;
+                    if (a.Equals(b)) //ignore self
+                        continue;
+
+                    //check collide
+                    b.DetectColish(a, gr);
+                }
+            }
+
+            //add explode animation
+            HandleExplosions();
+            //update particles
+            particles.ForEach(o => o.Tick());
+            //remove dead particles
+            particles.RemoveAll(o => o.life <= 0);
+
+            gameObjects.Where(o => o.IsMarkedForDeath && o is Tank).ToList().ForEach(x => NeedTank.Add((x as Tank).controller));
+            //removed dead objects
+            gameObjects.RemoveAll(o => o.IsMarkedForDeath);
+
+            NeedTank.ForEach(x => gameObjects.Add(Spawn.SpawnTank(x, sendEntityDelegate, gameObjects.TankListFromEntities())));
+        }
+
+        /// <summary>
+        /// Check for dead tanks, add particles at that position
+        /// to create explosion effect
+        /// </summary>
+        private void HandleExplosions() {
+            //define explosion 
+            int numParticles = 60;
+            byte life = 60;
+            float speed = 5f;
+
+            foreach (Entity e in gameObjects) {
+                //if a tank dies
+                if (e.IsMarkedForDeath && e is Tank) {
+                    //add lots of particles in random directions
+                    AddParticles(numParticles, life, speed, e.position, e.color);
+
+                }
+            }
+            
+        }
+
+        /// <summary>
+        /// Add particles to game.
+        /// </summary>
+        private void AddParticles(int numParticles, byte life, float speed, PointF pos, Color color) {
+            for (int i = 0; i < numParticles; i++) {
+                Particle p = new Particle();
+                p.pos = pos;
+                p.vel = Utility.Vector(rng.Next(0, 361), (float)rng.NextDouble() * speed);
+                p.life = (byte)rng.Next(life);
+                p.color = new SolidBrush(color);
+                particles.Add(p);
+            }
+        }
+
+        private void Draw(Graphics graphics) {
+            //draw background
+            drawBackground(graphics, 32);
+
+            //draw objects
+            gameObjects.ForEach(o => o.Render(graphics));
+
+            //draw particles
+            particles.ForEach(o => graphics.FillEllipse(o.color, o.pos.X, o.pos.Y, 4, 4));
+
+            //draw score
+            graphics.FillRectangle(new SolidBrush(Color.FromArgb(150, Color.Black)), 10, 10, 160, 20);
+            graphics.DrawString("SCORE: 0 | 0", new Font(FontFamily.GenericMonospace, 14), Brushes.White, 10, 10);
+
+            //graphics.DrawPie()
+        }
+
+        private void drawBackground(Graphics graphics, int gridSize) {
+            //define colors
+            Brush colorTileA = Brushes.DarkGray;
+            Brush colorTileB = Brushes.Silver;
+            Pen colorGrid = Pens.Gray;
+
+            //draw alterating tiles
+            for (int xx = 0; xx * gridSize < ClientSize.Width; xx++) {
+                for (int yy = 0; yy * gridSize < ClientSize.Width; yy++) {
+                    if (xx % 2 == 0) {
+                        if (yy % 2 == 0) {
+                            graphics.FillRectangle(colorTileA, xx * gridSize, yy * gridSize, gridSize, gridSize);
+                        } else {
+                            graphics.FillRectangle(colorTileB, xx * gridSize, yy * gridSize, gridSize, gridSize);
+                        }
+                    } else {
+                        if (yy % 2 == 1) {
+                            graphics.FillRectangle(colorTileA, xx * gridSize, yy * gridSize, gridSize, gridSize);
+                        } else {
+                            graphics.FillRectangle(colorTileB, xx * gridSize, yy * gridSize, gridSize, gridSize);
+                        }
+                    }
+                }
+            }
+
+            //draw grid
+            for (int x = 0; x < ClientSize.Width; x += gridSize) {
+                //verticle lines
+                graphics.DrawLine(colorGrid, x, 0, x, ClientSize.Height);
+            }
+            for (int y = 0; y < ClientSize.Height; y += gridSize) {
+                //horizontal lines
+                graphics.DrawLine(colorGrid, 0, y, ClientSize.Width, y);
+            }
+        }
+
+        public void AddBullet(Entity bullet) {
+            gameObjects.Add(bullet);
+        }
+
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e) {
+            isRunning = false; //set flag to end threads
+            renderThread.Join();
+            updateThread.Join();
+        }
+
+
+        private void Form1_KeyDown(object sender, KeyEventArgs e) {
+            controlP1.HandleKeyDown(e.KeyCode);
+            controlP2.HandleKeyDown(e.KeyCode);
+        }
+
+        private void Form1_KeyUp(object sender, KeyEventArgs e) {
+            controlP1.HandleKeyUp(e.KeyCode);
+            controlP2.HandleKeyUp(e.KeyCode);
+        }
+
+        private void Form1_Resize(object sender, EventArgs e) {
+            Text = Width + "," + Height;
+        }
+
+        private void Form1_MouseMove(object sender, MouseEventArgs e) {
+            //tankP1.cannonAngle = Utility.AngleTo(tankP1.position, new PointF(e.X, e.Y));
+        }     
+
+        private void Form1_MouseUp(object sender, MouseEventArgs e) {
+            /*
+            tankP1.fireCannon = false;
+
+            //TODO: move into Tank class. Pass object through delegate
+            //TODO: add offset to initial position to end of cannon
+            float bulletSpeed = 5f;
+            float dx = ((float)Math.Cos(tankP1.cannonAngle * Math.PI / 180) * bulletSpeed);
+            float dy = ((float)Math.Sin(tankP1.cannonAngle * Math.PI / 180) * bulletSpeed);
+            lock (updateLock) {
+                gameObjects.Add(new Bullet(tankP1.position, Color.White, dx, dy));
+            }*/
+        }
+
+        private void Form1_MouseDown(object sender, MouseEventArgs e) {
+            
+            //test explosion
+            lock (updateLock) {
+                AddParticles(60, 60, 5, new PointF(e.X, e.Y), Color.FromArgb(rng.Next(256), rng.Next(256), rng.Next(256)));
+            }
+        }
+    }
+}

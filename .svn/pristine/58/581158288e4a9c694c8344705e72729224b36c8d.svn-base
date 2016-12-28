@@ -1,0 +1,17 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace CMPE2800Tank {
+    class PlayerController : IControl {
+        public bool MoveForward { get; set; }
+        public bool MoveBackward { get; set; }
+        public bool RotateLeft { get; set; }
+        public bool RotateRight { get; set; }
+        public bool CannonRight { get; set; }
+        public bool CannonLeft { get; set; }
+        public bool FireCannon { get; set; }
+    }
+}

@@ -1,0 +1,73 @@
+﻿/* Simple Tank Game
+ * Angelo Sanches + Partner
+  */
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+
+namespace CMPE2800Tank { 
+    /// <summary>
+    /// a actor overview
+    /// </summary>
+    public abstract class Entity {
+        //random number gen we can use
+        static public Random RandomNumber { get; private set; } = new Random();
+        //its location and colours
+        public PointF position;
+        public float rotation;
+        public Color color;
+        // should it be removed
+        public bool IsMarkedForDeath;
+        // should we check for colish
+        protected bool ShouldCheck = true;
+        // the distance to start to check at in theory different things need different distances but we dont change much
+        public float CheckAtDistance { get; protected set; } = 32.0f;
+        /// <summary>
+        /// the base colish detect
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="gr"></param>
+        /// <returns></returns>
+        public virtual bool DetectColish(Entity sender, Graphics gr)
+        {
+            //if to far dont bother
+            if (!(ShouldCheck && !ReferenceEquals(sender, this) 
+                && Utility.Distance(position, sender.position) < CheckAtDistance + sender.CheckAtDistance))
+                return false;
+            return true;
+        }
+        /// <summary>
+        /// base constructor
+        /// </summary>
+        /// <param name="pos">location</param>
+        /// <param name="rot">rotation</param>
+        /// <param name="col">colour</param>
+        public Entity(PointF pos, float rot, Color col)
+        {
+            position = pos;
+            rotation = rot;
+            color = col;
+        }
+
+        /// <summary>
+        /// tick space to set
+        /// </summary>
+        internal abstract void Tick();
+        /// <summary>
+        /// a get path to set
+        /// </summary>
+        /// <returns>the shape to draw</returns>
+        public abstract GraphicsPath GetPath();
+        /// <summary>
+        /// a render that is over rideable
+        /// </summary>
+        /// <param name="gr"></param>
+        public virtual void Render(Graphics gr)
+        {
+            gr.FillPath(new SolidBrush(color), GetPath());
+        }
+
+    }
+
+}

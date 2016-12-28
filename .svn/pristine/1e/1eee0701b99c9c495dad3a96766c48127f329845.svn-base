@@ -1,0 +1,291 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Xml;
+namespace CMPE2800Tank
+{
+    class Space
+    {
+        public enum SpaceType
+        {
+            Wall,
+            Open
+        };
+
+        public enum Item
+        {
+            PlayerSpawn,
+            HeathPickUp,
+            SpeedPickUp
+        };
+
+        public int X { get; private set; }
+        public int Y { get; private set; }
+        public SpaceType Type { get; private set; }
+        public List<Item> Items { get; private set; }
+
+        public Space(string x, string y, string type, List<Item> Items)
+        {
+            if (x == null)
+                throw new Exception("X not Set");
+            if (y == null)
+                throw new Exception("Y not Set");
+            switch (type)
+            {
+                case null:
+                    throw new Exception("Type not Set");
+                default:
+                    throw new Exception("Type Mismach");
+                case "Wall":
+                    Type = SpaceType.Wall;
+                    break;
+                case "Open":
+                    Type = SpaceType.Open;
+                    break;
+            }
+            X = int.Parse(x);
+            Y = int.Parse(y);
+        }
+    }
+
+    class Level
+    {
+        public Space[] Spaces { get; private set; }
+        public string BackGround { get; private set; }
+
+        public Level(Space[] spaces, string iBackGround)
+        {
+            Spaces = spaces;
+            BackGround = iBackGround;
+        }
+    }
+
+    static class MapLoader
+    {
+        public const int TileSize = 32;
+        static readonly string MapsXMLPath = Environment.CurrentDirectory + "\\..\\..\\Level.txt";
+        static readonly string ErrorTxtPath = Environment.CurrentDirectory + "//Error.txt";
+        static readonly List<Level> Levels;
+        #region // the xml Parser stuff
+        static MapLoader()
+        {
+            Levels = new List<Level>();
+            //a string we will read to
+            string XMLRaw;
+
+            ///DO NOT MOVE XML FILE FROM SOURCE files <---------------------!!!! but you can move your folder for the project
+            // try and read the file to a string
+            try
+            {
+                using (StreamReader SR = File.OpenText(MapsXMLPath))
+                {
+                    XMLRaw = SR.ReadToEnd();
+                }
+
+                //start a parser
+                using (XmlReader XR = XmlReader.Create(new StringReader(XMLRaw)))
+                {
+                    while (XR.Read())
+                    {
+                        switch (XR.NodeType)
+                        {
+                            case XmlNodeType.Element:
+                                if (XR.Name == "Level")
+                                    Levels.Add(ReadForLevel(XR));
+                                break;
+
+                        }
+                    }
+                }
+            }
+            catch(IOException e)
+            {
+                System.Windows.Forms.MessageBox.Show("Critical error on Map load - " + e.Message);
+            }
+            catch(Exception e)
+            {
+                using (StreamWriter SW = new StreamWriter(File.OpenWrite(ErrorTxtPath)))
+                    SW.WriteLine("Error on Map load - " + e);
+            }
+
+            if (Levels.Count < 1)
+                throw new Exception("Failed to Parse a single map. Check error log for more\n" + ErrorTxtPath);
+
+        }
+
+        // I have Staged out the parsing to make keeping track easyer
+        // Every stage is for a collection
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="XR"></param>
+        /// <returns></returns>
+        static Level ReadForLevel(XmlReader XR)
+        {
+            string Background = null;
+            List<Space> Spaces = new List<Space>();
+            //will read to end
+            while (XR.Read())
+            {
+                switch (XR.NodeType)
+                {
+                    case XmlNodeType.Element:
+                        switch (XR.Name)
+                        {
+                            case "Background":
+                                string temp = XR.ReadInnerXml();
+                                Background = temp.Length > 0 ? temp : null;
+                                break;
+                            case "Space":
+                                Spaces.Add(ReadForSpace(XR));
+                                break;
+                        }
+                        break;
+                        //if we have hit the end of the element brake out and return
+                    case XmlNodeType.EndElement:
+                        if (XR.Name == "Level")
+                                return new Level(Spaces.ToArray(), Background);
+                        break;
+                }
+            }
+            // if hits the end and we have not closed there is a problem with the file
+            throw new Exception("Error : unexpected End of File at Space");
+        }
+
+        static Space ReadForSpace(XmlReader XR)
+        {
+            List<Space.Item> Items = new List<Space.Item>();
+            string X = null;
+            string Y = null;
+            string Type = null;
+
+            while (XR.Read())
+            {
+                switch(XR.NodeType)
+                {
+                    case XmlNodeType.Element:
+                        switch (XR.Name)
+                        {
+                            case "x":
+                                X = XR.ReadInnerXml();
+                                break;
+                            case "y":
+                                Y = XR.ReadInnerXml();
+                                break;
+                            case "Type":
+                                Type = XR.ReadInnerXml();
+                                break;
+                            case "Items":
+                                Items = ParseForItems(XR);
+                                break;
+                        }
+                        break;
+                    case XmlNodeType.EndElement:
+                        if (XR.Name == "Space")
+                                return new Space(X, Y, Type, Items);
+                        break;
+                }
+            }
+            throw new Exception("Error : unexpected End of File at Space");
+        }
+
+        static List<Space.Item> ParseForItems(XmlReader XR)
+        {
+            List<Space.Item> Items = new List<Space.Item>();
+            while (XR.Read())
+            {
+                switch (XR.NodeType)
+                {
+                    case XmlNodeType.Element:
+                        if (XR.Name == "ItemName")
+                                switch (XR.ReadInnerXml())
+                                {
+                                    case "PlayerSpawn":
+                                        Items.Add(Space.Item.PlayerSpawn);
+                                        break;
+                                    case "HeathPickUp":
+                                    Items.Add(Space.Item.HeathPickUp);
+                                    break;
+                                    case "SpeedPickUp":
+                                    Items.Add(Space.Item.SpeedPickUp);
+                                    break;
+                                }
+                        break;
+                    case XmlNodeType.EndElement:
+                        if (XR.Name == "Items")
+                                return Items;
+                        break;
+                }
+            }
+            throw new Exception("Error : unexpected End of File at Space");
+        }
+        #endregion
+
+
+        static Level NextMap()
+        {
+            return Levels[Entity.RandomNumber.Next(0, Levels.Count)];
+        }
+
+
+        public static Map LoadMap()
+        {
+            Level Template = MapLoader.NextMap();
+
+            List<Entity> Objects = new List<Entity>();
+
+            foreach (Space S in Template.Spaces)
+            {
+                switch (S.Type)
+                {
+                    case Space.SpaceType.Wall:
+                        Objects.Add(new Wall(new PointF(S.X * TileSize + TileSize / 2, S.Y * TileSize + TileSize / 2), 0, Color.Red));
+                        break;
+                    case Space.SpaceType.Open:
+                        for (int i = 0; i < S.Items.Count; i++)
+                        {
+                            switch (S.Items[i])
+                            {
+                                case Space.Item.PlayerSpawn:
+                                    Objects.Add(new Spawn(new PointF(S.X * TileSize + TileSize / 2, S.Y * TileSize + TileSize / 2), 0, Color.Red));
+                                    break;
+                                case Space.Item.HeathPickUp:
+                                    Objects.Add(new PUHealth(new PointF(S.X * TileSize + TileSize / 2, S.Y * TileSize + TileSize / 2), 0, Color.Red));
+                                    break;
+                                case Space.Item.SpeedPickUp:
+                                    Objects.Add(new PUSpeed(new PointF(S.X * TileSize + TileSize / 2, S.Y * TileSize + TileSize / 2), 0, Color.Red));
+                                    break;
+                            }
+                        }
+                        break;
+                }
+            }
+
+
+            return new Map(Objects, Template.BackGround);
+        }
+
+        
+    }
+
+    class Map
+    {
+        public string BackGround;
+        public List<Entity> Objects;
+        public Map(List<Entity> Entities, string iBackGround = null)
+        {
+            Objects = Entities;
+            BackGround = iBackGround;
+        }
+    }
+
+
+
+
+
+}

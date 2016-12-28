@@ -1,0 +1,52 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+
+namespace CMPE2800Tank { 
+    /// <summary>
+    /// a actor overview
+    /// </summary>
+    public abstract class Entity {
+        //random number gen we can use
+        static public Random RandomNumber { get; private set; } = new Random();
+        //its location and colours
+        public PointF position;
+        public float rotation;
+        public Color color;
+        // should it be removed
+        public bool IsMarkedForDeath;
+        // should we check for colish
+        protected bool ShouldCheck = true;
+        // the distance to start to check at in theory different things need different distances but we dont change much
+        public float CheckAtDistance { get; protected set; } = 32.0f;
+        //
+        public virtual bool DetectColish(Entity sender, Graphics gr)
+        {
+
+            if (!(ShouldCheck && !ReferenceEquals(sender, this) 
+                && Utility.Distance(position, sender.position) < CheckAtDistance + sender.CheckAtDistance))
+                return false;
+            return true;
+        }
+
+        public Entity(PointF pos, float rot, Color col)
+        {
+            position = pos;
+            rotation = rot;
+            color = col;
+        }
+
+
+        internal abstract void Tick();
+
+        public abstract GraphicsPath GetPath();
+
+        public virtual void Render(Graphics gr)
+        {
+            gr.FillPath(new SolidBrush(color), GetPath());
+        }
+
+    }
+
+}

@@ -1,0 +1,330 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Threading;
+using System.Diagnostics;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
+
+namespace CMPE2800Tank {
+    public partial class Form1 : Form {
+
+        //theads to handle rendering and logic
+        Thread renderThread, updateThread;
+        //flag to handle thread life
+        private volatile bool isRunning = false;
+        //object to lock access to entities while rendering and updating
+        private object updateLock = new object();
+
+        //delegate for passing Entity from logic thread to main form
+        public delegate void delVoidEntity(Entity ent);
+        private delVoidEntity sendEntityDelegate;
+
+        //objects such as tanks, bullets, walls, etc
+        PlayerController controllerP1 = new PlayerController();
+        PlayerController controllerP2 = new PlayerController();
+        private List<Entity> gameObjects = new List<Entity>();
+
+        //key mapping control config
+        //player 1 keys
+        private Keys p1Forward = Keys.I,
+            p1Backward = Keys.K,
+            p1Left = Keys.J,
+            p1Right = Keys.L,
+            p1CannonLeft = Keys.U,
+            p1CannonRight = Keys.O,
+            p1Fire = Keys.N;
+        //player 2 keys
+        private Keys p2Forward = Keys.W,
+            p2Backward = Keys.S,
+            p2Left = Keys.A,
+            p2Right = Keys.D,
+            p2CannonLeft = Keys.Q,
+            p2CannonRight = Keys.E;
+        
+
+        public Form1() {
+            InitializeComponent();
+
+            sendEntityDelegate = new delVoidEntity(AddBullet);
+
+            //add players
+            Tank tankP1 = new Tank(controllerP1, sendEntityDelegate, new PointF(20, 20), 0, Color.Blue);
+            //Tank tankP2 = new Tank(controllerP2, new PointF(100, 100), 0, Color.Blue);
+            gameObjects.Add(tankP1);
+            //gameObjects.Add(tankP2);
+
+            //add temporary test walls
+            //TODO: load map from text file
+            gameObjects.Add(new Wall(new PointF(16, 16), 0, Color.White));
+            gameObjects.Add(new Wall(new PointF(16, 48), 0, Color.White));
+            gameObjects.Add(new Wall(new PointF(48, 16), 0, Color.White));
+            gameObjects.Add(new Wall(new PointF(1024, 1024), 0, Color.White));
+            gameObjects.Add(new Wall(new PointF(512, 512), 0, Color.White));
+
+        }
+
+        private void Form1_Load(object sender, EventArgs e) {
+            //set running flag
+            isRunning = true;
+
+            //start rendering thread
+            renderThread = new Thread(RenderThread);
+            renderThread.IsBackground = true;
+            renderThread.Start();
+
+            //start logic thread
+            updateThread = new Thread(UpdateThread);
+            updateThread.IsBackground = true;
+            updateThread.Start();
+
+        }
+
+        private void RenderThread() {
+            while (isRunning) {
+                //render using double buffered graphics
+                using (BufferedGraphicsContext bgc = new BufferedGraphicsContext()) {
+                    using (BufferedGraphics bg = bgc.Allocate(CreateGraphics(), ClientRectangle)) {
+                        //clear screen
+                        bg.Graphics.Clear(Color.Black);
+
+                        //draw stuff
+                        lock (updateLock) {
+                            Draw(bg.Graphics);
+                        }                       
+
+                        //render backbuffer to frontbuffer
+                        bg.Render();
+                    }
+                }
+                Thread.Sleep(1);
+            }
+        }
+
+        private void UpdateThread() {
+            while (isRunning) {
+
+                lock (updateLock) {
+                    //clear old bullets
+                    newBulletQueue.Clear();
+
+                    //update objects
+                    UpdateLogic();
+
+                    //add new bullets to game
+                    gameObjects.AddRange(newBulletQueue);
+                }
+                
+                Thread.Sleep(20);
+            }
+        }
+
+        private void UpdateLogic() {
+
+            //collision
+
+            
+
+            //update players
+            //tankP1.Tick();
+            //tankP2.Tick();
+
+            //update bullets
+            gameObjects.ForEach(o => o.Tick());
+        }
+
+        private void Draw(Graphics graphics) {
+            //draw background
+            drawBackground(graphics, 32);
+
+            //draw players
+            //tankP1.Render(graphics);
+            //tankP2.Render(graphics);
+
+            //draw objects
+            gameObjects.ForEach(o => o.Render(graphics));
+        }
+
+        private void drawBackground(Graphics graphics, int gridSize) {
+            Brush colorTileA = Brushes.DarkGray;
+            Brush colorTileB = Brushes.Silver;
+            Pen colorGrid = Pens.Gray;
+            for (int xx = 0; xx * gridSize < ClientSize.Width; xx++) {
+                for (int yy = 0; yy * gridSize < ClientSize.Width; yy++) {
+                    if (xx % 2 == 0) {
+                        if (yy % 2 == 0) {
+                            graphics.FillRectangle(colorTileA, xx * gridSize, yy * gridSize, gridSize, gridSize);
+                        } else {
+                            graphics.FillRectangle(colorTileB, xx * gridSize, yy * gridSize, gridSize, gridSize);
+                        }
+                    } else {
+                        if (yy % 2 == 1) {
+                            graphics.FillRectangle(colorTileA, xx * gridSize, yy * gridSize, gridSize, gridSize);
+                        } else {
+                            graphics.FillRectangle(colorTileB, xx * gridSize, yy * gridSize, gridSize, gridSize);
+                        }
+                    }
+                }
+            }
+            for (int x = 0; x < ClientSize.Width; x += gridSize) {
+                graphics.DrawLine(colorGrid, x, 0, x, ClientSize.Height);
+            }
+            for (int y = 0; y < ClientSize.Height; y += gridSize) {
+                graphics.DrawLine(colorGrid, 0, y, ClientSize.Width, y);
+            }
+        }
+
+        private List<Entity> newBulletQueue = new List<Entity>();
+        public void AddBullet(Entity bullet) {
+            newBulletQueue.Add(bullet);
+        }
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e) {
+            isRunning = false; //set flag to end threads
+            renderThread.Join();
+            updateThread.Join();
+        }
+
+
+        private void Form1_KeyDown(object sender, KeyEventArgs e) {
+            //player 1
+            if (e.KeyCode == p1Forward) {
+               controllerP1.MoveForward = true;
+            }
+            
+            if (e.KeyCode == p1Backward) {
+                controllerP1.MoveBackward = true;
+            }
+
+            if (e.KeyCode == p1Left) {
+                controllerP1.RotateLeft = true;
+            }
+
+            if (e.KeyCode == p1Right) {
+                controllerP1.RotateRight = true;
+            }
+
+            if (e.KeyCode == p1CannonLeft) {
+                controllerP1.CannonLeft = true;
+            }
+
+            if (e.KeyCode == p1CannonRight) {
+                controllerP1.CannonRight = true;
+            }
+
+            if (e.KeyCode == p1Fire) {
+                controllerP1.FireCannon = true;
+            }
+
+            //player 2
+            if (e.KeyCode == p2Forward) {
+                controllerP2.MoveForward = true;
+            }
+
+            if (e.KeyCode == p2Backward) {
+                controllerP2.MoveBackward = true;
+            }
+
+            if (e.KeyCode == p2Left) {
+                controllerP2.RotateLeft = true;
+            }
+
+            if (e.KeyCode == p2Right) {
+                controllerP2.RotateRight = true;
+            }
+
+            if (e.KeyCode == p2CannonLeft) {
+                controllerP2.CannonLeft = true;
+            }
+
+            if (e.KeyCode == p2CannonRight) {
+                controllerP2.CannonRight = true;
+            }
+
+        }
+
+        private void Form1_KeyUp(object sender, KeyEventArgs e) {
+            //player 1           
+            if (e.KeyCode == p1Forward) {
+                controllerP1.MoveForward = false;
+            }
+
+            if (e.KeyCode == p1Backward) {
+                controllerP1.MoveBackward = false;
+            }
+
+            if (e.KeyCode == p1Left) {
+                controllerP1.RotateLeft = false;
+            }
+
+            if (e.KeyCode == p1Right) {
+                controllerP1.RotateRight = false;
+            }
+
+            if (e.KeyCode == p1CannonLeft) {
+                controllerP1.CannonLeft = false;
+            }
+
+            if (e.KeyCode == p1CannonRight) {
+                controllerP1.CannonRight = false;
+            }
+
+            if (e.KeyCode == p1Fire) {
+                controllerP1.FireCannon = false;
+            }
+
+            //player 2
+            if (e.KeyCode == p2Forward) {
+                controllerP2.MoveForward = false;
+            }
+
+            if (e.KeyCode == p2Backward) {
+                controllerP2.MoveBackward = false;
+            }
+
+            if (e.KeyCode == p2Left) {
+                controllerP2.RotateLeft = false;
+            }
+
+            if (e.KeyCode == p2Right) {
+                controllerP2.RotateRight = false;
+            }
+
+            if (e.KeyCode == p2CannonLeft) {
+                controllerP2.CannonLeft = false;
+            }
+
+            if (e.KeyCode == p2CannonRight) {
+                controllerP2.CannonRight = false;
+            }
+        }
+
+
+        private void Form1_MouseMove(object sender, MouseEventArgs e) {
+            //tankP1.cannonAngle = Utility.AngleTo(tankP1.position.X, tankP1.position.Y, e.X, e.Y);
+        }     
+
+        private void Form1_MouseUp(object sender, MouseEventArgs e) {
+            /*
+            tankP1.fireCannon = false;
+
+            //TODO: move into Tank class. Pass object through delegate
+            //TODO: add offset to initial position to end of cannon
+            float bulletSpeed = 5f;
+            float dx = ((float)Math.Cos(tankP1.cannonAngle * Math.PI / 180) * bulletSpeed);
+            float dy = ((float)Math.Sin(tankP1.cannonAngle * Math.PI / 180) * bulletSpeed);
+            lock (updateLock) {
+                gameObjects.Add(new Bullet(tankP1.position, Color.White, dx, dy));
+            }*/
+        }
+
+        private void Form1_MouseDown(object sender, MouseEventArgs e) {
+            //tankP1.fireCannon = true;
+        }
+    }
+}

@@ -1,0 +1,51 @@
+﻿<?xml version='1.0'?>
+<Levels>
+	<Level>
+		<Space>
+			<x>0</x>
+			<y>0</y>
+			<Type>Wall</Type>
+			<Items>
+				<ItemName>ExSpawner</ClassName>
+			</Items>
+			<x>1</x>
+			<y>0</y>
+			<Type>Wall</Type>
+			<Items>
+				<ItemName>ExSpawner</ClassName>
+			</Items>
+			<x>2</x>
+			<y>0</y>
+			<Type>Wall</Type>
+			<Items>
+				<ItemName>ExSpawner</ClassName>
+			</Items>
+			<x>3</x>
+			<y>0</y>
+			<Type>Wall</Type>
+			<Items>
+				<ItemName>ExSpawner</ClassName>
+			</Items>
+			<x>4</x>
+			<y>0</y>
+			<Type>Wall</Type>
+			<Items>
+				<ItemName>ExSpawner</ClassName>
+			</Items>
+
+			<x>5</x>
+			<y>5</y>
+			<Type>Wall</Type>
+			<Items>
+				<ItemName>ExSpawner</ClassName>
+			</Items>
+
+			<x>0</x>
+			<y>1</y>
+			<Type>Wall</Type>
+			<Items>
+				<ItemName>ExSpawner</ClassName>
+			</Items>
+		</Space>
+	</Level>
+</Levels>

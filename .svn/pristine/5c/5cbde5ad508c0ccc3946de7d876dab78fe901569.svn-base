@@ -1,0 +1,43 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace CMPE2800Tank {
+    class Bullet : Entity {
+
+        //private static float bulletSpeed = 0.5f;
+        private float radius = 2f;//size of projectile
+        public float scale;//size
+        private float dx, dy;//movement vector
+
+        private readonly GraphicsPath model = null;
+
+        public Bullet(PointF pos, float scale, Color col, float dx, float dy) : base(pos, 0, col) {
+            this.dx = dx;
+            this.dy = dy;
+            this.scale = scale;
+
+            //create graphics path from points
+            model = new GraphicsPath();
+            model.AddPolygon(Utility.CreateCircle(radius));
+        }
+
+        public override GraphicsPath GetPath() {
+            GraphicsPath graphicsPath = (GraphicsPath)model.Clone();
+            Matrix matrix = new Matrix();
+            matrix.Translate(position.X, position.Y);
+            matrix.Scale(scale, scale);
+            graphicsPath.Transform(matrix);
+            return graphicsPath;
+        }
+
+        internal override void Tick() {
+            position.X += dx;
+            position.Y += dy;
+        }
+    }
+}

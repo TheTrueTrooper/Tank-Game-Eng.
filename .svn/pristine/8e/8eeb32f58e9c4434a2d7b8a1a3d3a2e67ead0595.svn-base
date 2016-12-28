@@ -1,0 +1,49 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace CMPE2800Tank
+{
+
+    class Spawn : Entity
+    {
+        static List<Spawn> Spawns = new List<Spawn>();
+        static Random Rand = Form1.rng;
+
+        public Spawn(PointF pos, float rot, Color col) : base(pos, rot, col)
+        {
+            Spawns.Add(this);
+        }
+
+        public override GraphicsPath GetPath()
+        {
+            return new GraphicsPath();
+        }
+
+        internal override void Tick()
+        {
+            return;
+        }
+
+        public static Tank SpawnTank(IControl PlayerToSpawn, Form1.delVoidEntity CallBack, List<Tank> DangerousTanks)
+        {
+            Spawn Safe = null;
+            int Pos = 0;
+            while(Safe == null)
+            {
+                Pos = Rand.Next(Spawns.Count);
+                foreach (Tank t in DangerousTanks)
+                if (!(Utility.Distance(t.position, Spawns[Pos].position) < Spawns[Pos].CheckAtDistance + t.CheckAtDistance))
+                    {
+                        Safe = Spawns[Pos];
+                        break;
+                    }
+            }
+            return new Tank(PlayerToSpawn, CallBack, Safe.position, 0, Color.Red);
+        }
+    }
+}

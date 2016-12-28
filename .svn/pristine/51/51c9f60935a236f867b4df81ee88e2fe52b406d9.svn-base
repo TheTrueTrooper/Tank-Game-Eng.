@@ -1,0 +1,71 @@
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Xml;
+
+namespace CMPE2800Tank
+{
+    static class MapLoader
+    {
+
+        static readonly string Local = Environment.CurrentDirectory + "..\\..\\Level.txt";
+        static readonly List<Map> Maps = new List<Map>();
+
+        static MapLoader()
+        {
+            //a string we will read to
+            string XMLRaw;
+
+            ///DO NOT MOVE XML FILE FROM SOURCE files <---------------------!!!! but you can move your folder for the project
+            // try and read the file to a string
+            try
+            {
+                using (StreamReader SR = File.OpenText(Local))
+                {
+                    XMLRaw = SR.ReadToEnd();
+                }
+
+                //start a parser
+                using (XmlReader XR = XmlReader.Create(new StringReader(XMLRaw)))
+                {
+                    while (XR.Read())
+                    {
+                        switch (XR.NodeType)
+                        {
+                            //if it is an ele check the space name
+                            case XmlNodeType.Element:
+                                switch (XR.Name)
+                                {
+                                    case "Level":
+                                        break;
+                                }
+                                break;
+                            case XmlNodeType.EndElement:
+                                break;
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                //to do -> do som error handling here
+            }
+        }
+
+
+        static Map GetMap()
+        {
+            return Maps[Entity.RandomNumber.Next(0, Maps.Count)];
+        }
+
+    }
+
+       
+
+    class Map
+    {
+    }
+}

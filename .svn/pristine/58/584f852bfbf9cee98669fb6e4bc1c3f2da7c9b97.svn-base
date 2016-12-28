@@ -1,0 +1,266 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace CMPE2800Tank {
+    class Tank : Entity {
+
+        //ID for bullet ownership
+        private static int IDGen = 0;
+        public int ID { get; private set; }
+
+        //controlling interface
+        IControl controller { get; set; }
+
+        //health
+        const float MaxHealth = 100.0f;
+        const float MinHealth = 0.0f;
+        float hitpoints { get; set; } = 100f;
+
+        //previous values for collision detection
+        PointF prevPos = new PointF();
+        float prevRot = 0;
+
+        //flag to charge power of bullet (bigger = more damage)
+        bool charge = false;
+        float scale = 1f;//size of bullet
+        float sclSpeed = 0.04f;//how fast bullet grows
+        float maxScale = 5f;//size cap
+        //temporary bullet for rendering charge in barrel
+        private Bullet temporaryBarrelBullet = new Bullet(-1, new PointF(), new PointF(), 1, new Color());
+
+        //attributes
+        static float bodySize = 30;//size of body
+        static float cannonSize = 8;//size of cannon
+        float movementSpeed { get; set; } = 2f;//how fast tank can move
+        static float rotationSpeed = 1.5f;//how fast tank can turn
+        float bulletSpeed = 5f;//velocity of bullet
+        public float cannonAngle = 0f;//angle of barrel  
+        long shootDelay = 500;//time between shots threshold
+        Stopwatch timeSinceLastShot = new Stopwatch();//timer to limit firing rate
+
+        //graphics model
+        private readonly GraphicsPath bodyModel = null;//body
+        private readonly GraphicsPath cannonModel = null;//weapon
+
+        //delegate to send new bullets to main thread collection of game objects
+        private Form1.delVoidEntity addBulletDelegate;
+
+        public Tank(IControl Controller, Form1.delVoidEntity sendEntity, PointF pos, float rot, Color col) : base(pos, rot, col) {
+            //set id
+            ID = IDGen++;
+
+            //assign controller
+            controller = Controller;
+
+            //setup delegate
+            addBulletDelegate = sendEntity;
+
+            //create rectangle base for body of tank
+            bodyModel = new GraphicsPath();
+            bodyModel.AddPolygon(Utility.CreateRectangle(bodySize, bodySize * 1.5f));
+
+            //create rectangle for cannon
+            List<PointF> points = new List<PointF>();
+            points.Add(new PointF(cannonSize * 4f, cannonSize/2));
+            points.Add(new PointF(cannonSize * 4f, -cannonSize/2));
+            points.Add(new PointF(0, -cannonSize/2));  
+            points.Add(new PointF(0, cannonSize/2));  
+            //create graphicspath from points
+            cannonModel = new GraphicsPath();
+            cannonModel.AddPolygon(points.ToArray());
+            //cannonModel.AddPolygon(CreateRectangle(cannonSize, cannonSize * 1.5f).ToArray());
+
+            temporaryBarrelBullet.color = color;
+
+            cannonAngle = rot;
+        }
+
+        public override GraphicsPath GetPath() {
+            GraphicsPath graphicsPath = (GraphicsPath)bodyModel.Clone();
+            Matrix matrix = new Matrix();
+            matrix.Translate(position.X, position.Y);
+            matrix.Rotate(rotation);
+            graphicsPath.Transform(matrix);
+            return graphicsPath;
+        }
+
+        public GraphicsPath GetCannonPath() {
+            GraphicsPath graphicsPath = (GraphicsPath)cannonModel.Clone();
+            Matrix matrix = new Matrix();
+            matrix.Translate(position.X, position.Y);
+            matrix.Rotate(cannonAngle);
+            graphicsPath.Transform(matrix);
+            return graphicsPath;
+        }
+
+        public override void Render(Graphics gr) {
+            //draw body
+            gr.FillPath((Brush)new SolidBrush(color), GetPath());           
+            
+            //draw back of tank to discern orientation
+            PointF p3 = Utility.AddVectors(GetPath().PathPoints[2], Utility.Vector(rotation-180, -8));
+            PointF p4 = Utility.AddVectors(GetPath().PathPoints[3], Utility.Vector(rotation-180, -8));
+            PointF[] back = new PointF[] { GetPath().PathPoints[2], GetPath().PathPoints[3], p4, p3};
+            gr.FillPolygon(new HatchBrush(HatchStyle.DarkUpwardDiagonal, Color.Black, Color.Gray), back);
+            //gr.DrawLine(Pens.Purple, , GetPath().PathPoints[1]);
+            //gr.FillRectangle(Brushes.Purple, new RecGetPath().PathPoints[0], GetPath().PathPoints[1], 20, 20);
+            //gr.DrawLine(Pens.Purple, GetPath().PathPoints[0], GetPath().PathPoints[1]);
+
+            //outline model
+            gr.DrawPath(new Pen(Brushes.Black, 2), GetPath());
+
+
+            //draw cannon
+            gr.FillPath((Brush)new SolidBrush(Color.DimGray), GetCannonPath());
+            gr.DrawPath(Pens.Black, GetCannonPath());
+
+            //draw bullet on end of cannon
+            if (charge) {
+                temporaryBarrelBullet.scale = scale;
+                temporaryBarrelBullet.position = Utility.AddVectors(position, Utility.Vector(cannonAngle, cannonSize * 4f));
+                temporaryBarrelBullet.Render(gr);
+            }
+
+            //draw healthbar
+            //scale color with health -> red = low, green = high
+            int width = 50;
+            Brush hp = new SolidBrush(Color.FromArgb(255 - (int)(hitpoints*2.55f), (int)(hitpoints * 2.55f), 0));
+            gr.FillRectangle(hp, position.X - width/2, position.Y + 30, hitpoints*0.01f*width, 10);
+            gr.DrawRectangle(Pens.Black, position.X - width/2, position.Y + 30, width, 10);
+            gr.DrawString((int)hitpoints + " ", SystemFonts.DefaultFont, Brushes.Black, position.X-width/4, position.Y + 29);
+
+            //debug
+            //gr.DrawString((int)cannonAngle + "", SystemFonts.DefaultFont, Brushes.Black, position);
+        }
+        
+
+        internal override void Tick() {
+            //keep angles between 0 and 360
+            if (rotation < 0) rotation += 360;
+            if (rotation > 360) rotation -= 360;
+            if (cannonAngle < 0) cannonAngle += 360;
+            if (cannonAngle > 360) cannonAngle -= 360;           
+            
+            //save previouse state for collisions
+            prevPos = position;
+            prevRot = rotation;
+
+            //kill entity
+            if (hitpoints <= 0) {
+                IsMarkedForDeath = true;
+            }
+
+            if (controller.MoveForward) {
+                //move forwards based on rotation
+                PointF move = Utility.Vector(rotation, movementSpeed);
+                position = Utility.AddVectors(position, move);
+            }
+
+            if (controller.MoveBackward) {
+                //move backwards based on rotation
+                PointF move = Utility.Vector(rotation, movementSpeed);
+                position = Utility.SubVectors(position, move);
+            }
+
+            //left
+            if (controller.RotateLeft) {
+                rotation -= rotationSpeed;
+            }
+
+            //right
+            if (controller.RotateRight) {
+                rotation += rotationSpeed;
+            }
+
+            //cannon left
+            if (controller.CannonLeft) {
+                cannonAngle -= rotationSpeed * 1.5f;
+            }
+
+            //cannon right
+            if (controller.CannonRight) {
+                cannonAngle += rotationSpeed * 1.5f;
+            }
+
+            //fire           
+            if (controller.FireCannon) {
+                charge = true;
+                scale += sclSpeed;//charge projectile       
+                if (scale > maxScale) {//cap power
+                    scale = maxScale;
+                }           
+            } else if (charge) {
+                //check timer
+                if (!timeSinceLastShot.IsRunning || timeSinceLastShot.ElapsedMilliseconds > shootDelay)
+                {
+                    //add bullet
+                    PointF velocity = Utility.Vector(cannonAngle, bulletSpeed);
+                    PointF barrelEnd = Utility.AddVectors(position, Utility.Vector(cannonAngle, cannonSize * 4f));
+                    addBulletDelegate(new Bullet(ID, barrelEnd, velocity, scale, temporaryBarrelBullet.color));
+
+                    //reset timer
+                    timeSinceLastShot.Reset();
+                    timeSinceLastShot.Start();
+
+                    //reset charge
+                    charge = false;
+                    scale = 1f;
+                }
+            }
+        }
+
+
+        public override void DetectColish(Entity sender, Graphics gr)
+        {
+            //proximity check
+            base.DetectColish(sender, gr);
+            
+            //check intersect
+            Region region = new Region(GetPath());
+            region.Intersect(new Region(sender.GetPath()));
+            if (!region.IsEmpty(gr)) {
+
+                //check against bullet
+                if (sender is Bullet) {
+                    Bullet b = (sender as Bullet);
+                    if ((sender as Bullet).ID != ID) {
+                        //do damage, the bigger the projectile -> the more damage
+                        hitpoints -= (float)Math.Pow(b.radius, b.scale * 1.1f);
+                        hitpoints = Math.Max(hitpoints, 0);
+
+                        //destroy entity
+                        b.IsMarkedForDeath = true;
+                    }
+                }
+
+                //check against wall
+                if (sender is Wall || sender is Tank) {
+                    position = prevPos;
+                    rotation = prevRot;
+                }
+
+            }
+        }
+
+        public void PickUp(PickUps In)
+        {
+            switch(In.Type)
+            {
+                case PickUPType.Health:
+                    hitpoints = Math.Min(hitpoints * In.Value, MaxHealth);
+                    return;
+                case PickUPType.Speed:
+                    return;
+                case PickUPType.Turret:
+                    return;
+            }
+        }
+
+    }
+}

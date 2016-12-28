@@ -1,0 +1,30 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
+
+
+namespace CMPE2800Tank
+{
+    class ControllerInput : IControl
+    {
+
+        public bool FireCannon { get; private set; }
+
+        public bool MoveBackward { get; private set; }
+
+        public bool MoveForward { get; private set; }
+
+        public bool RotateLeft { get; private set; }
+
+        public bool RotateRight { get; private set; }
+
+        public bool CannonRight { get; private set; }
+        public bool CannonLeft { get; private set; }
+
+
+    }
+}

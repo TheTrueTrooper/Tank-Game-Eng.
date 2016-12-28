@@ -1,0 +1,326 @@
+﻿/* Simple Tank Game
+ * Angelo Sanches + Partner
+  */
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
+using System.Drawing;
+
+namespace CMPE2800Tank {
+    class Controller : IControl {
+
+        /// <summary>
+        /// an color getter that returns based on player number
+        /// </summary>
+        public System.Drawing.Color PlayerColor
+        {
+            get
+            {
+                switch(PlayerNum)
+                {
+                    case PlayerIndex.One:
+                        return System.Drawing.Color.Blue;
+                    case PlayerIndex.Two:
+                        return System.Drawing.Color.Green;
+                    default:
+                        return System.Drawing.Color.Yellow;
+                }
+            }
+        }
+        //sensitivity consts
+        const float LeftSenceY = 0.4f;
+        const float LeftSenceX = 0.3f;
+        const float RightSenceY = 0.6f;
+        const float RightSenceX = 0.5f;
+        const float TriggerSence = 0.5f;
+        /// <summary>
+        /// our score
+        /// </summary>
+        public byte PlayerScore { get; set; }
+        /// <summary>
+        /// the bools for the Icontorller
+        /// </summary>
+        bool forward, backward, bodyLeft, bodyRight, cannonLeft, cannonRight, fire;
+        /// <summary>
+        /// checks contoller if plugged in or just returns the value of key board can be set 
+        /// </summary>
+        public bool CannonLeft {
+            get {
+                if (GamePad.GetState(PlayerNum).IsConnected)
+                    return GamePad.GetState(PlayerNum).ThumbSticks.Right.X < -RightSenceX;
+                else
+                    return cannonLeft;
+            }
+            private set {
+                cannonLeft = value;
+            }
+        }
+        /// <summary>
+        /// checks contoller if plugged in or just returns the value of key board can be set 
+        /// </summary>
+        public bool CannonRight {
+            get {
+                if (GamePad.GetState(PlayerNum).IsConnected)
+                    return GamePad.GetState(PlayerNum).ThumbSticks.Right.X > RightSenceX;
+                else
+                    return cannonRight;
+            }
+            private set {
+                cannonRight = value;
+            }
+        }
+        /// <summary>
+        /// checks contoller if plugged in or just returns the value of key board can be set 
+        /// </summary>
+        public bool FireCannon {
+            get {
+                if (GamePad.GetState(PlayerNum).IsConnected)
+                    return GamePad.GetState(PlayerNum).Triggers.Right > TriggerSence;
+                else
+                    return fire;
+            }
+            private set {
+                fire = value;
+            }
+        }
+        /// <summary>
+        /// checks contoller if plugged in or just returns the value of key board can be set 
+        /// </summary>
+        public bool MoveBackward {
+            get {
+                if (GamePad.GetState(PlayerNum).IsConnected)
+                    return GamePad.GetState(PlayerNum).ThumbSticks.Left.Y < -LeftSenceY;
+                else
+                    return backward;                
+            }
+            private set {
+                backward = value;
+            }
+        }
+        /// <summary>
+        /// checks contoller if plugged in or just returns the value of key board can be set 
+        /// </summary>
+        public bool MoveForward {
+            get {
+                if (GamePad.GetState(PlayerNum).IsConnected)
+                    return GamePad.GetState(PlayerNum).ThumbSticks.Left.Y > LeftSenceY;
+                else
+                    return forward;       
+            }
+            private set {
+                forward = value;
+            }
+        }
+        /// <summary>
+        /// checks contoller if plugged in or just returns the value of key board can be set 
+        /// </summary>
+        public bool RotateLeft {
+            get {
+                if (GamePad.GetState(PlayerNum).IsConnected)
+                    return GamePad.GetState(PlayerNum).ThumbSticks.Left.X < -LeftSenceX;
+                else
+                    return bodyLeft;
+            }
+            private set {
+                bodyLeft = value;
+            }
+        }
+        /// <summary>
+        /// checks contoller if plugged in or just returns the value of key board can be set 
+        /// </summary>
+        public bool RotateRight {
+            get {
+                if (GamePad.GetState(PlayerNum).IsConnected)
+                    return GamePad.GetState(PlayerNum).ThumbSticks.Left.X > LeftSenceX;
+                else
+                    return bodyRight;
+            }
+            private set {
+                bodyRight = value;
+            }
+        }
+        /// <summary>
+        /// checks contoller if plugged in or just returns the value of key board can be set 
+        /// </summary>
+        public PlayerIndex PlayerNum { get; set; }
+        /// <summary>
+        /// gets the players number as an int or set with int 1-4
+        /// </summary>
+        public int PlayerNumber {
+          get { return (int)PlayerNum; }
+          set { if (value -1 > 4 || value-1 < 0) throw new Exception("out of range");
+                PlayerNum = (PlayerIndex)(value -1); }
+        }
+        
+        //key mapping control config
+        //player 1 keys
+        private System.Windows.Forms.Keys p1Forward = System.Windows.Forms.Keys.I,
+            p1Backward = System.Windows.Forms.Keys.K,
+            p1BodyLeft = System.Windows.Forms.Keys.J,
+            p1BodyRight = System.Windows.Forms.Keys.L,
+            p1CannonLeft = System.Windows.Forms.Keys.U,
+            p1CannonRight = System.Windows.Forms.Keys.O,
+            p1Fire = System.Windows.Forms.Keys.N;
+        //player 2 keys
+        private System.Windows.Forms.Keys p2Forward = System.Windows.Forms.Keys.W,
+            p2Backward = System.Windows.Forms.Keys.S,
+            p2BodyLeft = System.Windows.Forms.Keys.A,
+            p2BodyRight = System.Windows.Forms.Keys.D,
+            p2CannonLeft = System.Windows.Forms.Keys.Q,
+            p2CannonRight = System.Windows.Forms.Keys.E,
+            p2Fire = System.Windows.Forms.Keys.X;
+
+        // set with int
+        public Controller(int pNum = 1) : this((PlayerIndex)(pNum - 1))
+        {
+            if (pNum > 4 || pNum < 1) throw new ArgumentException("out of range");
+        }
+
+        //set with enum
+        public Controller(PlayerIndex pNum) {
+            PlayerNum = pNum;
+        }
+        /// <summary>
+        /// sets bools based on key downs
+        /// </summary>
+        /// <param name="keyCode"></param>
+        public void HandleKeyDown(System.Windows.Forms.Keys keyCode) {
+            if (PlayerNum == 0) {
+                //player 1
+                if (keyCode == p1Forward) {
+                    MoveForward = true;
+                }
+
+                if (keyCode == p1Backward) {
+                    MoveBackward = true;
+                }
+
+                if (keyCode == p1BodyLeft) {
+                    RotateLeft = true;
+                }
+
+                if (keyCode == p1BodyRight) {
+                    RotateRight = true;
+                }
+
+                if (keyCode == p1CannonLeft) {
+                    CannonLeft = true;
+                }
+
+                if (keyCode == p1CannonRight) {
+                    CannonRight = true;
+                }
+
+                if (keyCode == p1Fire) {
+                    FireCannon = true;
+                }
+            } else {
+                //player 2
+                if (keyCode == p2Forward) {
+                    MoveForward = true;
+                }
+
+                if (keyCode == p2Backward) {
+                    MoveBackward = true;
+                }
+
+                if (keyCode == p2BodyLeft) {
+                    RotateLeft = true;
+                }
+
+                if (keyCode == p2BodyRight) {
+                    RotateRight = true;
+                }
+
+                if (keyCode == p2CannonLeft) {
+                    CannonLeft = true;
+                }
+
+                if (keyCode == p2CannonRight) {
+                    CannonRight = true;
+                }
+
+                if (keyCode == p2Fire) {
+                    FireCannon = true;
+                }
+            }
+
+        }
+        /// <summary>
+        /// releases bools on key ups
+        /// </summary>
+        /// <param name="keyCode"></param>
+        public void HandleKeyUp(System.Windows.Forms.Keys keyCode) {
+            if (PlayerNum == 0) {
+                //player 1
+                if (keyCode == p1Forward) {
+                    MoveForward = false;
+                }
+
+                if (keyCode == p1Backward) {
+                    MoveBackward = false;
+                }
+
+                if (keyCode == p1BodyLeft) {
+                    RotateLeft = false;
+                }
+
+                if (keyCode == p1BodyRight) {
+                    RotateRight = false;
+                }
+
+                if (keyCode == p1CannonLeft) {
+                    CannonLeft = false;
+                }
+
+                if (keyCode == p1CannonRight) {
+                    CannonRight = false;
+                }
+
+                if (keyCode == p1Fire) {
+                    FireCannon = false;
+                }
+            } else {
+                //player 2
+                if (keyCode == p2Forward) {
+                    MoveForward = false;
+                }
+
+                if (keyCode == p2Backward) {
+                    MoveBackward = false;
+                }
+
+                if (keyCode == p2BodyLeft) {
+                    RotateLeft = false;
+                }
+
+                if (keyCode == p2BodyRight) {
+                    RotateRight = false;
+                }
+
+                if (keyCode == p2CannonLeft) {
+                    CannonLeft = false;
+                }
+
+                if (keyCode == p2CannonRight) {
+                    CannonRight = false;
+                }
+
+                if (keyCode == p2Fire) {
+                    FireCannon = false;
+                }
+            }
+
+        }
+
+        public override string ToString()
+        {
+            return PlayerNum.ToString();
+        }
+
+    }
+}

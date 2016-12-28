@@ -1,0 +1,44 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace CMPE2800Tank
+{
+    enum PickUPType
+    {
+        Health,
+        Speed,
+        Turret
+    }
+
+
+    abstract class PickUpss : Entity
+    {
+        public PickUPType Type { get; protected set; }
+
+        public float Value { get; protected set; } = 1.5f;
+
+        public PickUpss(PointF Pos, float Rot, Color Colour, float? value= null) : base(Pos, Rot, Colour)
+        {
+            if (value != null)
+                Value = value.Value;
+
+            CheckAtDistance = 25;
+        }
+
+        public override void DetectColish(Entity sender, Graphics gr)
+        {
+            if (!(ShouldCheck && !ReferenceEquals(sender, this)
+            && Utility.Distance(position, sender.position) < CheckAtDistance + sender.CheckAtDistance))
+                return;
+
+            if (sender is Tank)
+                (sender as Tank).PickUp(this);
+
+        }
+    }
+    
+}

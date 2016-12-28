@@ -1,0 +1,97 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace CMPE2800Tank {
+    static class Utility {
+        //non mutator
+       public static List<Tank> TankListFromEntities(this List<Entity> In)
+       {
+            List<Tank> Return = new List<Tank>();
+            foreach(Entity e in In)
+            {
+                if (e is Tank)
+                    Return.Add(e as Tank);
+            }
+            return Return;
+       }
+
+       public static bool IsPointInRectangle(PointF p, Rectangle r) {
+            return p.X > r.X && p.X < r.Width && p.Y > r.Y && p.Y < r.Height;
+        }
+
+        /// <summary>
+        /// Get distance beteween two points
+        /// </summary>
+        public static float Distance(this PointF a, PointF b) {
+            return (float)Math.Sqrt(Math.Pow(a.X - b.X, 2) + Math.Pow(a.Y - b.Y, 2));
+        }
+
+        /// <summary>
+        /// Turns an angle and velocity into a PointF representing the speed and direction
+        /// </summary>
+        /// <param name="angle"></param>
+        /// <param name="velocity"></param>
+        public static PointF Vector(float angle, float velocity) {
+            float dx = (float)Math.Cos(angle * Math.PI / 180) * velocity;
+            float dy = (float)Math.Sin(angle * Math.PI / 180) * velocity;
+            return new PointF(dx, dy);
+        }
+
+        /// <summary>
+        /// Add two vectors
+        /// </summary>
+        public static PointF AddVectors(this PointF a, PointF b) {
+            return new PointF(a.X + b.X, a.Y + b.Y);
+        }
+
+        /// <summary>
+        /// Subtract two vectors
+        /// </summary>
+        public static PointF SubVectors(this PointF a, PointF b) {
+            return new PointF(a.X - b.X, a.Y - b.Y);
+        }
+
+        /// <summary>
+        /// Get angle in degrees between object A and object B
+        /// </summary>
+        public static float AngleTo(this PointF a, PointF b) {
+            float angle = (float)Math.Atan2(b.Y - a.Y, b.X - a.X) * 180 / (float)Math.PI;
+            if (angle < 0) angle += 360;
+            if (angle > 360) angle -= 360;
+            return angle;
+        }
+
+        /// <summary>
+        /// Create list of points representing a rectangle
+        /// </summary>
+        /// <param name="width"></param>
+        /// <param name="height"></param>
+        /// <returns></returns>
+        public static PointF[] CreateRectangle(float width, float height) {
+            List<PointF> points = new List<PointF>();
+            points.Add(new PointF(height/2, width/2));//right top
+            points.Add(new PointF(height/2, -width/2));//right bottom
+            points.Add(new PointF(-height/2, -width/2));//left bottom   
+            points.Add(new PointF(-height/2, width/2));//left top
+            return points.ToArray();
+        }
+
+        public static PointF[] CreateCircle(float radius) {
+            List<PointF> list = new List<PointF>();
+
+            //create circle
+            int numPoints = 12;
+            double angle = 0.0;
+            while (list.Count < numPoints) {
+                list.Add(new PointF((float)(Math.Cos(angle) * radius), (float)(Math.Sin(angle) * radius)));
+                angle += 2.0 * Math.PI / numPoints;
+            }
+
+            return list.ToArray();
+        }
+    }
+}

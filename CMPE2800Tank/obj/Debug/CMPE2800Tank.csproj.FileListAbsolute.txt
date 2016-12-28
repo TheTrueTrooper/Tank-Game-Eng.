@@ -1,0 +1,12 @@
+C:\Users\Angelo\Documents\Visual Studio 2015\Projects\CMPE2800Tank\CMPE2800Tank\bin\Debug\CMPE2800Tank.exe.config
+C:\Users\Angelo\Documents\Visual Studio 2015\Projects\CMPE2800Tank\CMPE2800Tank\obj\Debug\CMPE2800Tank.csprojResolveAssemblyReference.cache
+C:\Users\Angelo\Documents\Visual Studio 2015\Projects\CMPE2800Tank\CMPE2800Tank\obj\Debug\CMPE2800Tank.Form1.resources
+C:\Users\Angelo\Documents\Visual Studio 2015\Projects\CMPE2800Tank\CMPE2800Tank\obj\Debug\CMPE2800Tank.Properties.Resources.resources
+C:\Users\Angelo\Documents\Visual Studio 2015\Projects\CMPE2800Tank\CMPE2800Tank\obj\Debug\CMPE2800Tank.csproj.GenerateResource.Cache
+C:\Users\Angelo\Documents\Visual Studio 2015\Projects\CMPE2800Tank\CMPE2800Tank\bin\Debug\CMPE2800Tank.exe
+C:\Users\Angelo\Documents\Visual Studio 2015\Projects\CMPE2800Tank\CMPE2800Tank\bin\Debug\CMPE2800Tank.pdb
+C:\Users\Angelo\Documents\Visual Studio 2015\Projects\CMPE2800Tank\CMPE2800Tank\bin\Debug\Microsoft.Xna.Framework.GamerServices.dll
+C:\Users\Angelo\Documents\Visual Studio 2015\Projects\CMPE2800Tank\CMPE2800Tank\bin\Debug\Microsoft.Xna.Framework.Input.Touch.dll
+C:\Users\Angelo\Documents\Visual Studio 2015\Projects\CMPE2800Tank\CMPE2800Tank\bin\Debug\Microsoft.Xna.Framework.Net.dll
+C:\Users\Angelo\Documents\Visual Studio 2015\Projects\CMPE2800Tank\CMPE2800Tank\obj\Debug\CMPE2800Tank.exe
+C:\Users\Angelo\Documents\Visual Studio 2015\Projects\CMPE2800Tank\CMPE2800Tank\obj\Debug\CMPE2800Tank.pdb

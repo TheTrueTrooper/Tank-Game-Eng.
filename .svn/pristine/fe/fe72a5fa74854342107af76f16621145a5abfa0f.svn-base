@@ -1,0 +1,21 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace CMPE2800Tank {
+    class Particle {
+
+        public PointF pos;
+        public PointF vel;
+        public byte life;
+        public Brush color;
+
+        public void Tick() {
+            pos = Utility.AddVectors(pos, vel);
+            life--;
+        }
+    }
+}

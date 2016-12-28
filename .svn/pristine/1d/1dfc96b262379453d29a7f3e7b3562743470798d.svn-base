@@ -1,0 +1,19 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace CMPE2800Tank
+{
+    interface IControl
+    {
+        bool MoveForward { get; }
+        bool MoveBackward { get; }
+        bool RotateLeft { get; }
+        bool RotateRight { get; }
+        bool CannonRight { get; }
+        bool CannonLeft { get; }
+        bool FireCannon { get; }
+    }
+}

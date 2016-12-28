@@ -1,0 +1,14 @@
+﻿<?xml version='1.0'?>
+<Levels>
+	<Level>
+		<Background></Background>
+		<Space>
+			<x>18</x>
+			<y>18</y>
+			<Type>Wall</Type>
+			<Items>
+				<ItemName></ItemName>
+			</Items>
+		</Space>
+	</Level>
+</Levels>

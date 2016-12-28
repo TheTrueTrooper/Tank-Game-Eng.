@@ -1,0 +1,15 @@
+﻿<?xml version='1.0'?>
+<Levels>
+	<Level>
+		<Space>
+			<x>0</x>
+			<y>0</y>
+			<Type>AnEnumType</Type>
+			<Items>
+				<offx>0</offx>//optional could just center
+				<offy>0</offy>//optional
+				<ClassName>ExSpawner</ClassName>
+			</Items>
+		</Space>
+	</Level>
+</Levels>

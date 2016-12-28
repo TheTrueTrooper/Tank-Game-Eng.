@@ -1,0 +1,196 @@
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Xml;
+
+namespace CMPE2800Tank
+{
+    static class MapLoader
+    {
+
+        static readonly string Local = Environment.CurrentDirectory + "..\\..\\Level.txt";
+        static readonly List<Level> Levels = new List<Level>();
+
+        static MapLoader()
+        {
+            //a string we will read to
+            string XMLRaw;
+
+            ///DO NOT MOVE XML FILE FROM SOURCE files <---------------------!!!! but you can move your folder for the project
+            // try and read the file to a string
+            try
+            {
+                using (StreamReader SR = File.OpenText(Local))
+                {
+                    XMLRaw = SR.ReadToEnd();
+                }
+
+                //start a parser
+                using (XmlReader XR = XmlReader.Create(new StringReader(XMLRaw)))
+                {
+                    while (XR.Read())
+                    {
+                        switch (XR.NodeType)
+                        {
+                            case XmlNodeType.Element:
+                                if (XR.Name == "Level")
+                                    Levels.Add(ReadForLevel(XR));
+                                break;
+                               
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                //to do -> do som error handling here
+            }
+        }
+
+        static Level ReadForLevel(XmlReader XR)
+        {
+            List<Space> Spaces = new List<Space>();
+            //will read to end
+            while (XR.Read())
+            {
+                switch (XR.NodeType)
+                {
+                    case XmlNodeType.Element:
+                        if (XR.Name == "Space")
+                                Spaces.Add(ReadForSpace(XR));
+                        break;
+                        //if we have hit the end of the element brake out and return
+                    case XmlNodeType.EndElement:
+                        if (XR.Name == "Level")
+                                return new Level(Spaces.ToArray());
+                        break;
+                }
+            }
+            // if hits the end and we have not closed there is a problem with the file
+            throw new Exception("Error : unexpected End of File at Space");
+        }
+
+        static Space ReadForSpace(XmlReader XR)
+        {
+            List<Space.Item> Items = new List<Space.Item>();
+            string X = null;
+            string Y = null;
+            string Type = null;
+
+            while (XR.Read())
+            {
+                switch(XR.NodeType)
+                {
+                    case XmlNodeType.Element:
+                        switch (XR.Name)
+                        {
+                            case "x":
+                                X = XR.ReadInnerXml();
+                                break;
+                            case "y":
+                                Y = XR.ReadInnerXml();
+                                break;
+                            case "Type":
+                                Type = XR.ReadInnerXml();
+                                break;
+                            case "Items":
+                                Items = ParseForItems(XR);
+                                break;
+                        }
+                        break;
+                    case XmlNodeType.EndElement:
+                        if (XR.Name == "Space")
+                                return new Space(X, Y, Type, Items);
+                        break;
+                }
+            }
+            throw new Exception("Error : unexpected End of File at Space");
+        }
+
+        static List<Space.Item> ParseForItems(XmlReader XR)
+        {
+            List<Space.Item> Items = new List<Space.Item>();
+            while (XR.Read())
+            {
+                switch (XR.NodeType)
+                {
+                    case XmlNodeType.Element:
+                        if (XR.Name == "ItemName")
+                                switch (XR.ReadInnerXml())
+                                {
+                                    case "PlayerSpawn":
+                                        Items.Add(Space.Item.PlayerSpawn);
+                                        break;
+                                }
+                        break;
+                    case XmlNodeType.EndElement:
+                        if (XR.Name == "Items")
+                                return Items;
+                        break;
+                }
+            }
+            throw new Exception("Error : unexpected End of File at Space");
+        }
+
+        static Level NextMap()
+        {
+            return Levels[Entity.RandomNumber.Next(0, Levels.Count)];
+        }
+
+    }
+
+    class Space
+    {
+        public enum SpaceType
+        {
+            Wall,
+            Open
+        };
+
+        public enum Item
+        {
+            PlayerSpawn
+        };
+
+        public int X { get; private set; }
+        public int Y { get; private set; }
+
+        public SpaceType Type { get; private set; }
+
+        public List<Item> Items { get; private set; }
+
+        public Space(string x, string y, string type, List<Item> Items)
+        {
+            if (x == null)
+                throw new Exception("X not Set");
+            if (y == null)
+                throw new Exception("Y not Set");
+            switch(type)
+            {
+                case null:
+                    throw new Exception("Type not Set");
+                default:
+                    throw new Exception("Type Mismach");
+                case "Wall":
+                    Type = SpaceType.Wall;
+                    break;
+                case "Open":
+                    Type = SpaceType.Open;
+                    break;
+            }
+        }
+    } 
+
+    class Level
+    {
+        Space[] Spaces;
+
+        public Level(Space[] spaces)
+        {
+            Spaces = spaces;
+        }
+    }
+}

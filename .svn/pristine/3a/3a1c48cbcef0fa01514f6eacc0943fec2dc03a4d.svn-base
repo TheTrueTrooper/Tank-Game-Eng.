@@ -1,0 +1,13 @@
+﻿<?xml version='1.0'?>
+<Levels>
+	<Level>
+		<Space>
+			<x>0</x>
+			<y>0</y>
+			<Type>AnEnumType</Type>
+			<Items>
+				<ItemName>ExSpawner</ClassName>
+			</Items>
+		</Space>
+	</Level>
+</Levels>

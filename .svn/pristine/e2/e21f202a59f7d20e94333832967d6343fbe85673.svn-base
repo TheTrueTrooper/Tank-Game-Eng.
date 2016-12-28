@@ -1,0 +1,120 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace CMPE2800Tank {
+    /// <summary>
+    /// aline is just two points to render
+    /// </summary>
+    class Line
+    {
+        public PointF Start, Finish;
+        public Line(PointF Star, PointF Fin)
+        {
+            Start = Star;
+            Finish = Fin;
+        }
+    }
+    class Wall : Entity {
+
+        private static GraphicsPath model = null;
+        private List<Line> Lines = new List<Line>();
+
+        private static int size = MapLoader.TileSize;     // size of it use Maps tile size  
+        private float hitPoints = 30;//hitpoints for wall destruction
+
+        /// <summary>
+        /// build a basic model
+        /// </summary>
+        /// <param name="pos"></param>
+        /// <param name="rot"></param>
+        /// <param name="col"></param>
+        public Wall(PointF pos, float rot, Color col) : base(pos, rot, col) {
+            model = new GraphicsPath();
+            model.AddPolygon(Utility.CreateRectangle(size, size).ToArray());
+        }
+        /// <summary>
+        /// Return our thing
+        /// </summary>
+        /// <returns></returns>
+        public override GraphicsPath GetPath() {
+            GraphicsPath graphicsPath = (GraphicsPath)model.Clone();
+            Matrix matrix = new Matrix();
+            matrix.Translate(position.X, position.Y);
+            graphicsPath.Transform(matrix);
+
+            return graphicsPath;
+        }
+
+        public override void Render(Graphics gr)
+        {
+            //draw model
+            //base.Render(gr);
+    
+            gr.FillPolygon(new HatchBrush(HatchStyle.HorizontalBrick, Color.Black, Color.Crimson), GetPath().PathPoints);
+
+            //draw outline to differentiate between walls
+            gr.DrawRectangle(Pens.Black, position.X-size/2, position.Y-size/2, size, size);
+
+            //this is what i would do for simplicity, instead of graphics path
+            Lines.ForEach(o => gr.DrawLine(new Pen(Color.White, 2), Utility.AddVectors(o.Start, position), Utility.AddVectors(o.Finish, position)));
+
+   
+        }
+        // check if we are hit
+        public override bool DetectColish(Entity sender, Graphics gr) {
+            //check old first
+            if (!base.DetectColish(sender, gr))
+                return false;
+            //check intersect
+            Region region = new Region(GetPath());
+            region.Intersect(new Region(sender.GetPath()));
+            if (!region.IsEmpty(gr)) {
+
+                //check against bullet
+                if (sender is Bullet) {
+                    //do damge
+                    Bullet b = sender as Bullet;
+                    float damage = (float)Math.Pow(b.radius, b.scale * 1.1f);
+                    hitPoints -= damage;
+
+                    //if no hitpoints left, kill
+                    if (hitPoints <= 0) {
+                        IsMarkedForDeath = true;
+                    }
+
+                    //if hitpoints low, crack
+                    if (hitPoints < 20) {
+                        AddCrack();
+                    }
+                }
+                return true;
+            }
+            return false;
+        }
+ /// <summary>
+ /// adds a crack
+ /// </summary>
+        protected void AddCrack() {
+            //grab a poin on on |_ side and an nother on the other
+            PointF a = new Point(RandomNumber.Next(-size / 2, size / 2), RandomNumber.Next(-size / 2, size / 2));
+            PointF b;
+            do {
+                //grab another and make sure it not too close or do it again
+                b = new Point(RandomNumber.Next(-size / 2, size / 2), RandomNumber.Next(-size / 2, size / 2));
+            } while (Utility.Distance(a, b) < 8);
+            //add it to the model
+            Lines.Add(new Line(a, b));
+        }
+        /// <summary>
+        /// do nothing
+        /// </summary>
+        internal override void Tick() {
+            return;
+        }
+    }
+}

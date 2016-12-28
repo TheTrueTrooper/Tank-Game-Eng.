@@ -1,0 +1,8 @@
+Error on Map load - System.ArgumentNullException: Value cannot be null.
+Parameter name: String
+   at System.Number.StringToNumber(String str, NumberStyles options, NumberBuffer& number, NumberFormatInfo info, Boolean parseDecimal)
+   at System.Number.ParseInt32(String s, NumberStyles style, NumberFormatInfo info)
+   at System.Int32.Parse(String s)
+   at CMPE2800Tank.Level..ctor(List`1 spaces, String iBackGround, String isizeX, String isizeY) in C:\Users\Angelo\Documents\Visual Studio 2015\Projects\CMPE2800Tank\CMPE2800Tank\Map.cs:line 124
+   at CMPE2800Tank.MapLoader.ReadForLevel(XmlReader XR) in C:\Users\Angelo\Documents\Visual Studio 2015\Projects\CMPE2800Tank\CMPE2800Tank\Map.cs:line 297
+   at CMPE2800Tank.MapLoader..cctor() in C:\Users\Angelo\Documents\Visual Studio 2015\Projects\CMPE2800Tank\CMPE2800Tank\Map.cs:line 216

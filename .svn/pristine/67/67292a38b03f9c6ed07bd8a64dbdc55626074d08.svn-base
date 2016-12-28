@@ -1,0 +1,161 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace CMPE2800Tank {
+    class Tank : Entity {
+
+        public IControl controller;
+
+        //flag to charge power of bullet (bigger = more damage)
+        private bool charge = false;
+        private float scale = 1f;
+        private float maxScale = 5f;
+        //temporary bullet for rendering charge in barrel
+        private Bullet temporaryBarrelBullet = new Bullet(new PointF(), 1, Color.White, 0, 0);
+
+        //attributes
+        private static float bodySize = 30;//size of body
+        private static float cannonSize = 8;//size of cannon
+        private float movementSpeed = 2f;//how fast tank can move
+        private static float rotationSpeed = 1.5f;//how fast tank can turn
+        private float bulletSpeed = 5f;//velocity of bullet
+        private float cannonAngle = 0f;//angle of barrel  
+        private long shootDelay = 500;//time between shots threshold
+        private Stopwatch timeSinceLastShot = new Stopwatch();//timer to limit firing rate
+
+        //graphics model
+        private readonly GraphicsPath bodyModel = null;//body
+        private readonly GraphicsPath cannonModel = null;//weapon
+
+        //delegate to send new bullets to main thread collection of game objects
+        private Form1.delVoidEntity addBulletDelegate;
+
+        public Tank(IControl Controller, Form1.delVoidEntity sendEntity, PointF pos, float rot, Color col) : base(pos, rot, col) {
+            this.controller = Controller;
+            addBulletDelegate = sendEntity;
+
+            //create rectangle base for body of tank
+            //create graphicspath from points
+            bodyModel = new GraphicsPath();
+            bodyModel.AddPolygon(Utility.CreateRectangle(bodySize, bodySize * 1.5f).ToArray());
+
+            //create rectangle for cannon
+            List<PointF> points = new List<PointF>();
+            points.Add(new PointF(cannonSize * 4f, cannonSize/2));
+            points.Add(new PointF(cannonSize * 4f, -cannonSize/2));
+            points.Add(new PointF(0, -cannonSize/2));  
+            points.Add(new PointF(0, cannonSize/2));  
+            //create graphicspath from points
+            cannonModel = new GraphicsPath();
+            cannonModel.AddPolygon(points.ToArray());
+            //cannonModel.AddPolygon(CreateRectangle(cannonSize, cannonSize * 1.5f).ToArray());
+        }
+
+        public override GraphicsPath GetPath() {
+            GraphicsPath graphicsPath = (GraphicsPath)bodyModel.Clone();
+            Matrix matrix = new Matrix();
+            matrix.Translate(position.X, position.Y);
+            matrix.Rotate(rotation);
+            graphicsPath.Transform(matrix);
+            return graphicsPath;
+        }
+
+        public GraphicsPath GetCannonPath() {
+            GraphicsPath graphicsPath = (GraphicsPath)cannonModel.Clone();
+            Matrix matrix = new Matrix();
+            matrix.Translate(position.X, position.Y);
+            matrix.Rotate(cannonAngle);
+            graphicsPath.Transform(matrix);
+            return graphicsPath;
+        }
+
+        public override void Render(Graphics gr) {
+            //draw body
+            gr.FillPath((Brush)new SolidBrush(color), GetPath());
+
+            //draw cannon
+            gr.FillPath((Brush)new SolidBrush(Color.Red), GetCannonPath());
+
+            //draw bullet on end of cannon
+            if (charge) {
+                temporaryBarrelBullet.scale = scale;
+                PointF barrelLength = new PointF(position.X + (float)(Math.Cos(cannonAngle / 180 * Math.PI) * cannonSize*4f),
+                    position.Y + (float)(Math.Sin(cannonAngle / 180 * Math.PI) * cannonSize*4f));
+                temporaryBarrelBullet.position = new PointF(barrelLength.X, barrelLength.Y);
+                temporaryBarrelBullet.Render(gr);
+            }
+        }
+
+        internal override void Tick() {
+
+            if (controller.MoveForward) {
+                //move forwards based on rotation
+                float dx = (float)Math.Cos(rotation * Math.PI / 180) * movementSpeed;
+                float dy = (float)Math.Sin(rotation * Math.PI / 180) * movementSpeed;
+                position.X += dx;
+                position.Y += dy;
+            }
+
+            if (controller.MoveBackward) {
+                //move backwards based on rotation
+                float dx = (float)Math.Cos(rotation * Math.PI / 180) * movementSpeed;
+                float dy = (float)Math.Sin(rotation * Math.PI / 180) * movementSpeed;
+                position.X -= dx;
+                position.Y -= dy;
+            }
+
+            //left
+            if (controller.RotateLeft) {
+                rotation -= rotationSpeed;
+            }
+
+            //right
+            if (controller.RotateRight) {
+                rotation += rotationSpeed;
+            }
+
+            //cannon left
+            if (controller.CannonLeft) {
+                cannonAngle -= rotationSpeed;
+            }
+
+            //cannon right
+            if (controller.CannonRight) {
+                cannonAngle += rotationSpeed;
+            }
+
+            //fire           
+            if (controller.FireCannon) {
+                charge = true;
+                scale += 0.04f;//charge projectile       
+                if (scale > maxScale) {//cap power
+                    scale = maxScale;
+                }           
+            } else if (charge) {
+                //check timer
+                if (!timeSinceLastShot.IsRunning || timeSinceLastShot.ElapsedMilliseconds > shootDelay) {
+                    //add bullet
+                    float dx = ((float)Math.Cos(cannonAngle * Math.PI / 180) * bulletSpeed);
+                    float dy = ((float)Math.Sin(cannonAngle * Math.PI / 180) * bulletSpeed);
+                    PointF barrelEnd = new PointF(position.X + (float)(Math.Cos(cannonAngle / 180 * Math.PI) * cannonSize * 4f),
+                    position.Y + (float)(Math.Sin(cannonAngle / 180 * Math.PI) * cannonSize * 4f));
+                    addBulletDelegate.Invoke(new Bullet(barrelEnd, scale, temporaryBarrelBullet.color, dx, dy));
+
+                    //reset timer
+                    timeSinceLastShot.Reset();
+                    timeSinceLastShot.Start();
+
+                    //reset charge flag
+                    charge = false;
+                    scale = 1f;
+                }
+            }
+        }
+    }
+}
